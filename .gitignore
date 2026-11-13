@@ -10,4 +10,4 @@ reports/
 final_state.csv
 .pytest_cache/
 *.sqlite3
-CLUADE.md
+CLAUDE.md
