@@ -10,7 +10,7 @@ import argparse
 import os
 import sys
 
-from .db import init_db, set_pii_key, insert_rejection, get_rejections
+from .db import init_db, set_pii_key
 from .ingest import ingest_leads, ingest_events
 from .reports import (
     generate_batch_summary,
@@ -102,7 +102,7 @@ def cmd_ingest(drop_path: str) -> int:
     )
 
     # Apply defaults to leads (e.g. preferred_language -> en)
-    from .db import apply_defaults
+    from .ingest import apply_defaults
     apply_defaults(db)
 
     # Commit the transaction

@@ -125,6 +125,15 @@ def match_schema_field(normalised_header: str, schema_fields: list) -> dict | No
 # Lead row processing
 # ──────────────────────────────────────────────────────────────────────
 
+from .normalise import parse_date as _parse_date
+
+
+def normalise_date(raw):
+    """Date string -> 'YYYY-MM-DD', or None if invalid."""
+    d = _parse_date(raw)
+    return d.isoformat() if d else None
+
+
 def process_lead_row(row: dict, schema: dict) -> dict | None:
     """Process a single CSV row against a workflow schema.
 
@@ -154,7 +163,11 @@ def process_lead_row(row: dict, schema: dict) -> dict | None:
         required = f.get("required", False)
 
         # Get the raw value from the header map
-        raw = header_map.get(norm_header(fname))
+        raw = None
+        for cand in [fname] + f.get("aliases", []):
+            raw = header_map.get(norm_header(cand))
+            if raw is not None:
+                break
 
         if raw is None:
             # Field not found in this row's columns
@@ -193,7 +206,7 @@ def process_lead_row(row: dict, schema: dict) -> dict | None:
         # Check for optional field present but invalid -> null + 1 field warning
         # Only when field is optional (required=False) and value was present
         # but normalisation failed (val is None)
-        if not required and val is None and ftype in ("enum", "decimal"):
+        if not required and val is None and ftype in ("date", "enum", "decimal"):
             # The field was present (we got here because raw was not None)
             # but normalisation failed
             field_warnings.append(fname)
@@ -288,7 +301,6 @@ def ingest_leads(drop_path: str, db: sqlite3.Connection, drop_name: str) -> dict
             non_blank_row_num = 0
 
             for row in rows:
-                total_rows += 1  # counting per the spec? Let me re-check.
 
                 # Process the row
                 result = process_lead_row(row, schema)
@@ -303,6 +315,9 @@ def ingest_leads(drop_path: str, db: sqlite3.Connection, drop_name: str) -> dict
                     # incl. malformed and duplicates". Hmm, but this is for events.
                     # For leads, let me just track total_rows as non-blank data rows.
                     continue
+
+                total_rows += 1
+                non_blank_row_num += 1
 
                 if "reason" in result:
                     # Rejected row
